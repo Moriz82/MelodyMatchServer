@@ -5,14 +5,18 @@ import random
 import torch.nn as nn
 from torch.optim import Adam
 from pydub import AudioSegment
-from datasets import load_dataset
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset, DataLoader
+from datasets import load_dataset, concatenate_datasets
 from test2 import fetch_view_serial, send_server_data, clear_client_data, view_client_data
 
 device = torch.device("mps") if torch.backends.mps.is_available() else "cpu"
-ds = load_dataset("lewtun/music_genres")
-songs = ds['train'].to_pandas()
+
+ds_train = load_dataset("lewtun/music_genres", split="train")
+ds_test = load_dataset("lewtun/music_genres", split="test")
+
+ds = concatenate_datasets([ds_train, ds_test])
+songs = ds.to_pandas()
 
 songs['genre_id'] = songs['genre_id'].astype(int)
 
@@ -182,10 +186,25 @@ def main():
                     training_data.append(sequence)
 
                 filtered_set = songs[songs['genre_id'] == int(current_genre)]
+                filtered_set = filtered_set[filtered_set['song_id'] <= 2000]
+
                 if not filtered_set.empty:
                     random_song = random.choice(filtered_set.to_dict(orient='records'))
 
-            client_code = view_client_data()['code']
+                    # Check if the song_id is valid (<= 2000)
+                    while random_song['song_id'] > 2000:
+                        filtered_set = songs[songs['genre_id'] == int(current_genre)]
+                        filtered_set = filtered_set[filtered_set['song_id'] <= 2000]
+                        if not filtered_set.empty:
+                            random_song = random.choice(filtered_set.to_dict(orient='records'))
+                        else:
+                            random_song = None
+                            break
+
+            client_code = 0
+            client_data = view_client_data()
+            if 'code' in client_data:
+                client_code = client_data['code']
 
             # if random_song is not None and client_code == 14:
             if random_song is not None:
@@ -193,6 +212,7 @@ def main():
                 # ogg_bytes = random_song['audio']['bytes']
                 # mp3_bytes = convert_ogg_to_mp3(ogg_bytes)
                 send_server_data(song_id)
+                # send_server_data(0)
                 clear_client_data()
                 print("Skipping Song")
                 # SEND DA SONG OVER BITCH

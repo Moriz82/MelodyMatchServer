@@ -211,6 +211,7 @@ def main():
                 song_id = random_song['song_id']
                 # ogg_bytes = random_song['audio']['bytes']
                 # mp3_bytes = convert_ogg_to_mp3(ogg_bytes)
+                print(song_id)
                 send_server_data(song_id)
                 # send_server_data(0)
                 clear_client_data()
